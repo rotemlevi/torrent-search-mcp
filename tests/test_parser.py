@@ -493,6 +493,113 @@ async def test_apibay_parse_browse_merges_top100(monkeypatch: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
+# BitSearch
+# ---------------------------------------------------------------------------
+
+
+def test_bitsearch_rows() -> None:
+    data: dict[str, Any] = {
+        "results": [
+            {
+                "infohash": "D" * 40,  # uppercase -> must be lowered
+                "title": "Sample Show 2026 1080p",
+                "size": 1_500_000_000,
+                "category": 2,
+                "seeders": 50,
+                "leechers": 10,
+                "downloads": 7,
+                "updatedAt": "2026-10-27T06:00:22.920Z",
+            },
+            {"title": "short hash", "infohash": "abc"},
+            {"title": "zero hash", "infohash": "0" * 40},
+            {"title": "unknown category", "infohash": "e" * 40, "category": 99},
+            {"title": "string category", "infohash": "f" * 40, "category": "2"},
+            {"title": "bool category", "infohash": "a" * 40, "category": True},
+            {
+                "title": "XXX release without downloads",
+                "infohash": "c" * 40,
+                "category": 10,
+                "seeders": 1,
+                "leechers": 0,
+            },
+            {
+                "title": "XXX zero downloads",
+                "infohash": "b" * 40,
+                "category": 10,
+                "seeders": 2,
+                "leechers": 1,
+                "downloads": 0,
+            },
+            {"infohash": "a" * 40, "category": 10},  # no title
+        ]
+    }
+    rows = parser.bitsearch_rows(data)
+    # short hash and zero hash are skipped
+    assert len(rows) == len(data["results"]) - 2
+    first = rows[0]
+    assert first[1] == "Video - Movies"
+    assert first[2] == "1.4 GiB"
+    assert first[3] == "50"
+    assert first[4] == "10"
+    assert first[5] == "7"
+    assert first[6] == "2026-10-27T06:00:22.920000+00:00"
+    assert first[7].startswith(f"magnet:?xt=urn:btih:{'d' * 40}")
+    assert rows[1][1] == "N/A"  # unknown category id
+    assert rows[2][1] == "N/A"  # string category id
+    assert rows[3][1] == "N/A"  # bool category id
+    assert rows[4][1] == "XXX"
+    assert rows[5][5] == "N/A"  # downloads 0 renders N/A
+    assert rows[6][0] == "Unknown"  # missing title falls back
+
+
+@pytest.mark.asyncio
+async def test_bitsearch_parse_search_sends_query(monkeypatch: Any) -> None:
+    seen: dict[str, Any] = {}
+
+    async def spy(_url: str, params: dict[str, str] | None = None) -> Any:
+        seen["params"] = params
+        return {
+            "results": [
+                {
+                    "infohash": "a" * 40,
+                    "title": "Sample OS ISO",
+                    "size": 1000,
+                    "category": 5,
+                    "seeders": 3,
+                    "leechers": 1,
+                    "updatedAt": "2026-10-27T06:00:22.920Z",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(parser, "_get_json", spy)
+    out = await parser.bitsearch_parse("sample os")
+    assert seen["params"] == {"limit": "50", "q": "sample os"}
+    torrents = _extract("bitsearch.eu", out)
+    assert torrents[0].filename == "Sample OS ISO"
+    assert torrents[0].category == "N/A"  # category 5 is not mapped
+
+
+@pytest.mark.asyncio
+async def test_bitsearch_parse_popular_ranks_by_seeders(monkeypatch: Any) -> None:
+    seen: dict[str, Any] = {}
+
+    async def spy(_url: str, params: dict[str, str] | None = None) -> Any:
+        seen["params"] = params
+        return {"results": []}
+
+    monkeypatch.setattr(parser, "_get_json", spy)
+    assert await parser.bitsearch_parse("") == "No results"
+    assert seen["params"] == {"limit": "50", "sort": "seeders", "order": "-1"}
+
+
+@pytest.mark.asyncio
+async def test_bitsearch_parse_non_dict_payload(monkeypatch: Any) -> None:
+    monkeypatch.setattr(parser, "_get_json", _fake(["unexpected"]))
+    assert await parser.bitsearch_parse("q") == "No results"
+
+
+# ---------------------------------------------------------------------------
 # EZTV
 # ---------------------------------------------------------------------------
 

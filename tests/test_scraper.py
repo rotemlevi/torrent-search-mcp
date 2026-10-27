@@ -19,6 +19,7 @@ def test_websites_registry_complete() -> None:
         "subsplease.org",
         "uindex.org",
         "1337x.to",
+        "bitsearch.eu",
     ]
     for parser_fn in scraper.WEBSITES.values():
         assert callable(parser_fn)
@@ -145,6 +146,31 @@ async def test_popular_torrents_skips_unparsable_listing(monkeypatch: Any) -> No
     monkeypatch.setattr(scraper, "ensure_trackers", _fake_parser(""))
     monkeypatch.setattr(scraper, "POPULAR_SOURCES", {"bad.example": garbage, "ok": ok})
     assert [t.filename for t in await scraper.popular_torrents()] == ["Good"]
+
+
+@pytest.mark.asyncio
+async def test_scrape_torrents_skips_excluded_sources(monkeypatch: Any) -> None:
+    async def fake_parser(query: str) -> str:
+        return f"{CSV_HEADER}\nfake;{query}"
+
+    monkeypatch.setitem(scraper.WEBSITES, "nyaa.si", fake_parser)
+    monkeypatch.setattr(scraper, "EXCLUDED_SOURCES", {"nyaa.si"})
+    assert await scraper.scrape_torrents("test", sources=["nyaa.si"]) == []
+
+
+@pytest.mark.asyncio
+async def test_popular_torrents_skips_excluded_sources(monkeypatch: Any) -> None:
+    async def excluded(_: int | None) -> str:
+        return f"{CSV_HEADER}\nBad;Anime;1 GB;5;2;10;2026-01-01;magnet:?xt=urn:btih:{'a' * 40}&dn=x"
+
+    async def ok(_: int | None) -> str:
+        return f"{CSV_HEADER}\nGood;Anime;1 GB;7;2;10;2026-01-01;magnet:?xt=urn:btih:{'a' * 40}&dn=x"
+
+    monkeypatch.setattr(scraper, "ensure_trackers", _fake_parser(""))
+    monkeypatch.setattr(scraper, "POPULAR_SOURCES", {"nyaa.si": excluded, "ok": ok})
+    monkeypatch.setattr(scraper, "EXCLUDED_SOURCES", {"nyaa.si"})
+    torrents = await scraper.popular_torrents()
+    assert [t.filename for t in torrents] == ["Good"]
 
 
 @pytest.mark.asyncio

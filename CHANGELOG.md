@@ -1,3 +1,14 @@
+## [Unreleased]
+
+### 🚀 Features
+
+- Feat: BitSearch JSON source (`bitsearch.eu`, absorbed the Solid Torrents index); wider base tracker list; search AND popular listings now honor `EXCLUDE_SOURCES`.
+
+- torrent_search/wrapper/parser.py: new `bitsearch_parse` (JSON API `/api/v1/search`, categories mapped Movies/XXX/Apps, magnets built from info hashes); base `TRACKERS` extended with the currently-healthy public endpoints (merged with the live ngosang best list at runtime); `POPULAR_SOURCES` gains `bitsearch.eu` (index ranked by seeders).
+- torrent_search/wrapper/scraper.py: registry + popular gains; `EXCLUDE_SOURCES` env var now excludes sources on scraper-driven paths too (popular listings previously ignored it).
+- torrent_search/static/index.html: `bitsearch.eu` added to the UI source order; stale `bittorrented.com` display entry dropped.
+- tests: BitSearch row-mapper and both parse modes; exclusion tests for search and popular; conftest pins `EXCLUDED_SOURCES` empty (hermetic against lingering env).
+
 ## [4.5.0] - 2026-09-16
 
 ### 🚀 Features

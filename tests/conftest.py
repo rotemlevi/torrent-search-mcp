@@ -19,6 +19,9 @@ def hermetic_env(monkeypatch: Any) -> None:
     monkeypatch.setattr(api_server, "_AGENT_RELAY_URL", None)
     monkeypatch.setattr(api_server, "_AGENT_RELAY_TOKEN", None)
     monkeypatch.setattr(api_server, "_AGENT_MODE", False)
+    # A lingering EXCLUDE_SOURCES in the env would zero out every source.
+    monkeypatch.delenv("EXCLUDE_SOURCES", raising=False)
+    monkeypatch.setattr(scraper, "EXCLUDED_SOURCES", set())
 
 
 @pytest.fixture(autouse=True)
