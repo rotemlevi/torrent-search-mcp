@@ -48,6 +48,16 @@ TRACKERS = [
     "http://tracker.openbittorrent.com:80/announce",
     "http://tracker.dler.org:6969/announce",
     "https://tracker.tamersunion.org:443/announce",
+    # Additional 2026-healthy public endpoints (merged with the live best list)
+    "udp://open.tracker.cl:1337/announce",
+    "udp://tracker.qu.ax:6969/announce",
+    "udp://explodie.org:6969/announce",
+    "udp://tracker.ducks.party:1984/announce",
+    "udp://tracker2.dler.org:80/announce",
+    "udp://tracker.nyaa.vc:6969/announce",
+    "udp://tracker.peerfect.org:6969/announce",
+    "udp://tracker.bittor.pw:1337/announce",
+    "udp://tracker-udp.gbitt.info:80/announce",
 ]
 
 TRACKERS_BEST_URL = (
@@ -854,6 +864,54 @@ async def yts_parse(query: str, *, sort_by: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
+# bitsearch.eu - JSON API (absorbed the Solid Torrents index)
+# ---------------------------------------------------------------------------
+BITSEARCH_URL = "https://bitsearch.eu/api/v1/search"
+BITSEARCH_LIMIT = "50"
+BITSEARCH_CATEGORIES = {1: "Apps", 2: "Video - Movies", 10: "XXX"}
+
+
+def bitsearch_rows(data: dict[str, Any]) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for item in data.get("results") or []:
+        info_hash = (item.get("infohash") or "").strip().lower()
+        if len(info_hash) != 40 or info_hash == "0" * 40:
+            continue
+        title = item.get("title") or "Unknown"
+        category_id = item.get("category")
+        category = (
+            BITSEARCH_CATEGORIES.get(int(category_id), "N/A")
+            if isinstance(category_id, int) and not isinstance(category_id, bool)
+            else "N/A"
+        )
+        rows.append(
+            _row(
+                title,
+                category,
+                human_size(item.get("size")),
+                item.get("seeders"),
+                item.get("leechers"),
+                item.get("downloads"),
+                item.get("updatedAt"),
+                build_magnet(info_hash, title),
+            )
+        )
+    return rows
+
+
+async def bitsearch_parse(query: str) -> str:
+    params: dict[str, str] = {"limit": BITSEARCH_LIMIT}
+    if q := query.strip():
+        params["q"] = q
+    else:
+        # Ponytail: the API has no top page; rank the whole index by swarm
+        # health in popular mode (same client-side approach as EZTV/uIndex).
+        params.update(sort="seeders", order="-1")
+    data = await _get_json(BITSEARCH_URL, params)
+    return _format(bitsearch_rows(data if isinstance(data, dict) else {}))
+
+
+# ---------------------------------------------------------------------------
 # Popular listings
 # ---------------------------------------------------------------------------
 # Sources exposing a top/popular listing. Each entry accepts the requested
@@ -867,4 +925,5 @@ POPULAR_SOURCES: dict[str, Callable[[int | None], Awaitable[str]]] = {
     "yts.mx": lambda _: yts_parse("", sort_by="seeds"),  # most seeded uploads
     "nyaa.si": lambda _: nyaa_popular(),  # HTML page honors seed sorting, RSS does not
     "eztvx.to": lambda _: eztv_parse(""),  # latest releases as candidate pool
+    "bitsearch.eu": lambda _: bitsearch_parse(""),  # index ranked by seeders
 }

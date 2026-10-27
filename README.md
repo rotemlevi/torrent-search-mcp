@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/philogicae/torrent-search-mcp)
 
-This repository provides a Python API/WebUI and an MCP (Model Context Protocol) server to find torrents programmatically on **ThePirateBay**, **1337x**, **Nyaa**, **YTS**, **EZTV**, **FitGirl**, **SubsPlease** and **UIndex**. It allows for easy integration into other applications or services.
+This repository provides a Python API/WebUI and an MCP (Model Context Protocol) server to find torrents programmatically on **ThePirateBay**, **1337x**, **BitSearch**, **Nyaa**, **YTS**, **EZTV**, **FitGirl**, **SubsPlease** and **UIndex**. It allows for easy integration into other applications or services.
 
 <div align="center" style="margin: 20px 0;">
   <img src=".github/assets/cover.png" alt="Torrent Search web UI - popular torrents view" width="720" />
@@ -61,7 +61,7 @@ uvx torrent-search-mcp --mode api
 
 ## Features
 
-- API wrapper for **ThePirateBay**, **1337x**, **Nyaa**, **YTS**, **EZTV**, **FitGirl**, **SubsPlease** and **UIndex**.
+- API wrapper for **ThePirateBay**, **1337x**, **BitSearch**, **Nyaa**, **YTS**, **EZTV**, **FitGirl**, **SubsPlease** and **UIndex**.
 - MCP server interface (FastMCP 4) serving the `2026-07-28` protocol revision over `stdio` or streamable HTTP (`http`), with automatic negotiation of older handshake revisions and legacy transport aliases (`streamable-http`, `sse`).
 - API server interface for alternative HTTP access (e.g., for direct API calls or testing).
 - CLI mode for quick one-off searches directly from the terminal.
@@ -72,7 +72,7 @@ uvx torrent-search-mcp --mode api
 - Telegram-gated web UI: one-time QR/deep-link pairing, forward-to-Telegram popup and (optional) server-side forwarding.
 - Tools:
   - Search for torrents across all available sources.
-  - Get the most popular torrents per source (apibay, uindex, 1337x, YTS, nyaa, EZTV).
+  - Get the most popular torrents per source (apibay, uindex, 1337x, YTS, nyaa, EZTV, bitsearch).
   - Get the magnet link for a specific torrent by id.
   - List available sources.
   - Present the web UI and its Telegram pairing access, approve pairing codes, and forward torrents to Telegram chats.
@@ -83,6 +83,7 @@ uvx torrent-search-mcp --mode api
 | ------------ | ---------------------- | --------------------- |
 | ThePirateBay | `apibay.org`           | JSON API              |
 | 1337x        | `1337x.to` + mirrors   | HTML search/top pages |
+| BitSearch    | `bitsearch.eu`         | JSON API (index of the DHT swarm; absorbed Solid Torrents) |
 | Nyaa         | `nyaa.si`              | RSS + HTML top page   |
 | YTS          | `yts.mx` + mirrors     | JSON API              |
 | EZTV         | `eztvx.to`             | JSON API              |
@@ -324,7 +325,7 @@ Usable with any MCP-compatible client. Available tools:
   - `query`: Optimized, lowercase, space-separated keywords (e.g. `"sample show s01e05"`). Generic/filler/technical terms should be stripped per the tool's docstring.
   - By default magnet links are stripped from the response to save tokens; set `INCLUDE_LINKS=true` to include them.
   - **Magnet round trips:** with `INCLUDE_LINKS` unset, results keep their `id` but no magnet. After picking the 2-5 torrents worth recommending, call `get_torrent(id)` once per pick: the server resolves it from its 1-hour torrent cache, or re-runs the search if the entry expired. Do not fetch magnets for every result.
-- `popular_torrents(per_source=20)`: Get the most popular torrents right now from sources with an official top listing (apibay, uindex, 1337x, YTS, nyaa, EZTV) - up to `per_source` results each, grouped per source and pre-ranked by seeders + leechers.
+- `popular_torrents(per_source=20)`: Get the most popular torrents right now from sources with an official top listing (apibay, uindex, 1337x, YTS, nyaa, EZTV, bitsearch) - up to `per_source` results each, grouped per source and pre-ranked by seeders + leechers.
   - By default magnet links are stripped from the response to save tokens; set `INCLUDE_LINKS=true` to include them.
 - `available_sources()`: Get the list of available torrent sources.
 - `get_torrent(torrent_id)`: Get the magnet link for a specific torrent by id (the `id` returned by `search_torrents` or `popular_torrents`).

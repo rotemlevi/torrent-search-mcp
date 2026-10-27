@@ -1,6 +1,7 @@
 import logging
 from asyncio import Task, create_task, gather, wait_for
 from collections.abc import Awaitable, Callable
+from os import getenv
 from time import time
 
 from .models import Torrent
@@ -8,6 +9,7 @@ from .parser import (
     POPULAR_SOURCES,
     SourceParser,
     apibay_parse,
+    bitsearch_parse,
     ensure_trackers,
     extract_torrents,
     eztv_parse,
@@ -33,7 +35,20 @@ WEBSITES: dict[str, SourceParser] = {
     "subsplease.org": subsplease_parse,
     "uindex.org": uindex_parse,
     "1337x.to": x1337_parse,
+    "bitsearch.eu": bitsearch_parse,  # JSON index (absorbed Solid Torrents)
 }
+
+# ---------------------------------------------------------------------------
+# Source exclusions
+# ---------------------------------------------------------------------------
+# Honors the EXCLUDE_SOURCES env var for scraper-driven paths (search and
+# popular alike); the api_client applies the same list to its own SOURCES set.
+_EXCLUDED_ENV = getenv("EXCLUDE_SOURCES")
+EXCLUDED_SOURCES: set[str] = (
+    {s.strip() for s in _EXCLUDED_ENV.split(",") if s.strip()}
+    if _EXCLUDED_ENV
+    else set()
+)
 
 # ---------------------------------------------------------------------------
 # Scraping
@@ -77,7 +92,7 @@ async def scrape_torrents(query: str, sources: list[str] | None = None) -> list[
     enabled = [
         (name, parser)
         for name, parser in WEBSITES.items()
-        if sources is None or name in sources
+        if (sources is None or name in sources) and name not in EXCLUDED_SOURCES
     ]
     results = await gather(*(_scrape_source(s, p, query) for s, p in enabled))
     return [r for r in results if r is not None]
@@ -159,7 +174,7 @@ async def popular_torrents(
     enabled = [
         (name, fn)
         for name, fn in POPULAR_SOURCES.items()
-        if sources is None or name in sources
+        if (sources is None or name in sources) and name not in EXCLUDED_SOURCES
     ]
     results = await gather(
         *(_popular_source(name, fn, per_source) for name, fn in enabled)
