@@ -43,3 +43,10 @@ filterwarnings = [
     "ignore::starlette.exceptions.StarletteDeprecationWarning",
     "ignore:.*BlockingPortal alias is deprecated.*:DeprecationWarning",
 ]
+
+[tool.uv]
+# cryptography 49+ ships no x86_64 macOS wheel and the source build needs Rust;
+# keep Intel Macs on the last universal2 wheel, everyone else on the latest.
+constraint-dependencies = [
+    "cryptography<49; sys_platform == 'darwin' and platform_machine == 'x86_64'",
+]
