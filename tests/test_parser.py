@@ -1058,3 +1058,52 @@ async def test_x1337_parse_all_fetches_fail(monkeypatch: Any) -> None:
 
     monkeypatch.setattr(parser, "_x1337_fetch", fake_fetch)
     assert await parser.x1337_parse("show") == "No results"
+
+
+@pytest.mark.asyncio
+async def test_x1337_parse_query_searches_all_categories(monkeypatch: Any) -> None:
+    requested: list[str] = []
+    ebook_html = """<table class="table-list">
+    <tr><td><a href="/torrent/444/1/">Amazon PPC Guide (2025) EPUB</a></td>
+        <td class="coll-2 seeds">12</td>
+        <td class="coll-3 leeches">3</td>
+        <td class="coll-4 size">4.7 MB</td></tr>
+</table>"""
+
+    async def fake_fetch(path: str) -> tuple[str, str]:
+        requested.append(path)
+        html = ebook_html if "/Other/" in path else "<p>no results</p>"
+        return "https://1337xx.to", html
+
+    async def fake_detail(base: str, path: str) -> tuple[str, str] | None:
+        return MAGNET_40, "2026-06-26"
+
+    monkeypatch.setattr(parser, "_x1337_fetch", fake_fetch)
+    monkeypatch.setattr(parser, "_x1337_detail", fake_detail)
+    torrents = _extract("1337x.to", await parser.x1337_parse("amazon ppc"))
+
+    slugs = [slug for slug, _ in parser.X1337_SEARCH_CATEGORIES]
+    assert sorted(requested) == sorted(
+        f"/category-search/amazon+ppc/{slug}/1/" for slug in slugs
+    )
+    assert "XXX" not in slugs
+    assert len(torrents) == 1
+    assert torrents[0].category == "Other - E-books, tutorials"
+
+
+@pytest.mark.asyncio
+async def test_x1337_parse_dedupes_rows_across_categories(monkeypatch: Any) -> None:
+    calls: list[str] = []
+
+    async def fake_fetch(path: str) -> tuple[str, str]:
+        return "https://1337xx.to", X1337_HTML
+
+    async def fake_detail(base: str, path: str) -> tuple[str, str] | None:
+        calls.append(path)
+        return MAGNET_40, "2026-06-26"
+
+    monkeypatch.setattr(parser, "_x1337_fetch", fake_fetch)
+    monkeypatch.setattr(parser, "_x1337_detail", fake_detail)
+    torrents = _extract("1337x.to", await parser.x1337_parse("show"))
+    assert len(torrents) == 2
+    assert sorted(calls) == ["/torrent/111/1/", "/torrent/222/1/"]
