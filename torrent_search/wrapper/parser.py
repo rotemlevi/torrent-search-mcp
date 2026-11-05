@@ -310,6 +310,18 @@ X1337_HOSTS = [
     "www.1337xx.to",
     "1337xx.to",
 ]
+# Searched categories (1337x category-search slug, reported category). XXX is
+# left out on purpose. "Other" holds e-books, audiobooks, images and tutorials.
+X1337_SEARCH_CATEGORIES = [
+    ("Movies", "Video - Movies"),
+    ("TV", "Video - TV shows"),
+    ("Documentaries", "Video - Documentaries"),
+    ("Anime", "Video - Anime"),
+    ("Music", "Audio - Music"),
+    ("Games", "Games"),
+    ("Apps", "Applications"),
+    ("Other", "Other - E-books, tutorials"),
+]
 X1337_STOP_WORDS = {"the", "a", "an", "of", "and", "or", "to"}
 X1337_MONTHS = {
     "jan": 1,
@@ -413,8 +425,8 @@ async def x1337_parse(query: str, max_items: int | None = None) -> str:
     if q:
         encoded = quote(q, safe="").replace("%20", "+")
         paths = [
-            (f"/category-search/{encoded}/Movies/1/", "Video - Movies"),
-            (f"/category-search/{encoded}/TV/1/", "Video - TV shows"),
+            (f"/category-search/{encoded}/{slug}/1/", label)
+            for slug, label in X1337_SEARCH_CATEGORIES
         ]
     else:
         paths = [
@@ -424,6 +436,7 @@ async def x1337_parse(query: str, max_items: int | None = None) -> str:
 
     tokens = [t for t in q.lower().split() if t not in X1337_STOP_WORDS] if q else []
     candidates: list[tuple[str, str, list[str]]] = []
+    seen_paths: set[str] = set()
     pages = await asyncio.gather(
         *(_x1337_fetch(path) for path, _ in paths), return_exceptions=True
     )
@@ -436,7 +449,11 @@ async def x1337_parse(query: str, max_items: int | None = None) -> str:
             source_rows = [
                 row for row in source_rows if all(t in row[0].lower() for t in tokens)
             ]
-        candidates.extend((base, category, row) for row in source_rows)
+        for row in source_rows:
+            if row[1] in seen_paths:
+                continue
+            seen_paths.add(row[1])
+            candidates.append((base, category, row))
     candidates.sort(key=lambda candidate: int(candidate[2][3]), reverse=True)
     if max_items is not None:
         candidates = candidates[:max_items]
